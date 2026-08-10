@@ -324,9 +324,10 @@ body{overflow-x:hidden}
 .toolbar button:disabled{opacity:.55;cursor:default}
 #pdfBtn:disabled{opacity:1;cursor:progress}
 /* secret edit controls: hidden unless unlocked via ?edit=lol-edit */
-#editBtn,#resetBtn,#annotBtn{display:none}
-body.edit-enabled #editBtn,body.edit-enabled #annotBtn{display:inline-block}
+#editBtn,#resetBtn,#annotBtn,#exportBtn{display:none}
+body.edit-enabled #editBtn,body.edit-enabled #annotBtn,body.edit-enabled #exportBtn{display:inline-block}
 body.edit-enabled.editing #resetBtn{display:inline-block}
+#exportBtn.busy{opacity:.6;pointer-events:none}
 body.presenting #editBtn,body.presenting #resetBtn,body.presenting #annotBtn{display:none !important}
 #editBtn.on{background:linear-gradient(135deg,var(--crimson),var(--crimson-deep));color:#04181B;border-color:var(--crimson)}
 #annotBtn.on{background:var(--gold);color:#0B1517;border-color:var(--gold)}
@@ -447,6 +448,7 @@ body.presenting .present-counter{display:block}
   <button id="fsBtn" title="프리젠테이션 모드 (F)"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6V2h4"/><path d="M14 6V2h-4"/><path d="M2 10v4h4"/><path d="M14 10v4h-4"/></svg><span class="lbl">프리젠테이션</span></button>
   <button id="editBtn" title="텍스트/이미지 수정 (E)"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11.3 2.3l2.4 2.4-8 8-3 .6.6-3z"/></svg><span class="lbl">수정</span></button>
   <button id="resetBtn" title="수정 내용 모두 초기화"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8a4.5 4.5 0 1 0 1.3-3.2"/><path d="M3.3 3.2v3.1h3.1"/></svg><span class="lbl">초기화</span></button>
+  <button id="exportBtn" title="편집 내용을 담은 배포용 index.html 다운로드"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2.8h7.4l2.8 2.8v7.6a.8.8 0 0 1-.8.8H3.6a.8.8 0 0 1-.8-.8V3.6a.8.8 0 0 1 .8-.8z"/><path d="M5.4 2.8v3.3h4.6V2.8"/><rect x="5.4" y="9.3" width="5.2" height="3.5"/></svg><span class="lbl">배포용 저장</span></button>
   <button id="annotBtn" title="영역을 클릭해 수정요청 만들기"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 14s5-4.6 5-8.4A5 5 0 0 0 3 5.6C3 9.4 8 14 8 14z"/><circle cx="8" cy="5.6" r="1.5"/></svg><span class="lbl">수정요청</span></button>
   <button id="pdfBtn" title="PDF 파일로 다운로드"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v7.5"/><path d="M4.5 6.5 8 10l3.5-3.5"/><path d="M3 13.5h10"/></svg><span class="lbl">PDF 다운로드</span></button>
   <button id="lockBtn" title="다시 잠금"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="10" height="7" rx="1.2"/><path d="M5.2 7V4.8a2.8 2.8 0 0 1 5.6 0V7"/></svg></button>
@@ -468,6 +470,7 @@ const gatePw=document.getElementById('gatePw');
 const gateErr=document.getElementById('gateErr');
 const _te=new TextEncoder(), _td=new TextDecoder();
 function _b64ToBuf(b64){const bin=atob(b64);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u;}
+function _bufToB64(buf){const u=new Uint8Array(buf);let s='';const CH=0x8000;for(let i=0;i<u.length;i+=CH){s+=String.fromCharCode.apply(null,u.subarray(i,Math.min(i+CH,u.length)));}return btoa(s);}
 function _deriveKey(pw,salt){
   return crypto.subtle.importKey('raw',_te.encode(pw),'PBKDF2',false,['deriveKey'])
     .then(base=>crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:250000,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']));
@@ -476,6 +479,13 @@ async function decryptDeck(pw){
   const key=await _deriveKey(pw,_b64ToBuf(ENC_SALT));
   const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:_b64ToBuf(ENC_IV)},key,_b64ToBuf(ENC_DATA));
   return _td.decode(plain);
+}
+async function encryptDeck(pw,text){
+  const salt=crypto.getRandomValues(new Uint8Array(16));
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const key=await _deriveKey(pw,salt);
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,_te.encode(text));
+  return {salt:_bufToB64(salt),iv:_bufToB64(iv),data:_bufToB64(ct)};
 }
 let deckInited=false;
 async function unlockWith(pw){
@@ -718,6 +728,40 @@ document.addEventListener('keydown',e=>{
     if(window.indexedDB) idbClear().then(done).catch(done); else done();
   });
 
+  /* ---- 💾 배포용 저장: 현재 편집 내용을 재암호화해 배포 가능한 index.html로 다운로드 ---- */
+  const exportBtn=document.getElementById('exportBtn');
+  exportBtn.addEventListener('click',async()=>{
+    const input=prompt('새 비밀번호(빈칸=기존 비밀번호 유지, 취소=중단)','');
+    if(input===null) return;
+    const pw=input.trim()||AUTO_PW;
+    exportBtn.classList.add('busy');
+    try{
+      const clone=deck.cloneNode(true);
+      clone.querySelectorAll('[contenteditable]').forEach(el=>el.removeAttribute('contenteditable'));
+      const deckHtml=clone.innerHTML;
+      const enc=await encryptDeck(pw,deckHtml);
+      const res=await fetch(location.pathname+'?raw='+Date.now(),{cache:'no-store'});
+      if(!res.ok) throw new Error('원본 파일을 불러오지 못했습니다 (HTTP '+res.status+')');
+      let raw=await res.text();
+      const encRe=/\/\*ENC-START\*\/[\s\S]*?\/\*ENC-END\*\//;
+      if(!encRe.test(raw)) throw new Error('ENC-START 블록을 찾지 못했습니다.');
+      raw=raw.replace(encRe,()=>`/*ENC-START*/const ENC_SALT="${enc.salt}",ENC_IV="${enc.iv}",ENC_DATA="${enc.data}";/*ENC-END*/`);
+      const autoRe=/\/\*AUTO-UNLOCK-START\*\/[\s\S]*?\/\*AUTO-UNLOCK-END\*\//;
+      if(!autoRe.test(raw)) throw new Error('AUTO-UNLOCK 블록을 찾지 못했습니다.');
+      raw=raw.replace(autoRe,()=>`/*AUTO-UNLOCK-START*/const AUTO_PW='${pw}';(function(){ unlockWith(AUTO_PW); })();/*AUTO-UNLOCK-END*/`);
+      const blob=new Blob([raw],{type:'text/html'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url; a.download='index.html'; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),4000);
+      alert('배포용 index.html을 다운로드했습니다.\n비밀번호: '+pw+'\n\n이 파일로 기존 index.html을 덮어써서 git commit/push 하면 배포됩니다.');
+    }catch(err){
+      alert('저장에 실패했습니다.\n'+(err&&err.message?err.message:err));
+    }finally{
+      exportBtn.classList.remove('busy');
+    }
+  });
+
   /* ---- 📌 수정요청(annotation) 모드 ---- */
   const annotBtn=document.getElementById('annotBtn');
   let annotating=false, annots=[];
@@ -862,7 +906,7 @@ document.addEventListener('keydown',e=>{
 } // end initDeck
 
 /* auto-unlock (no password prompt) — deck ciphertext still keeps plaintext out of the git source */
-(function(){ unlockWith('nlolworlds2026'); })();
+/*AUTO-UNLOCK-START*/const AUTO_PW='nlolworlds2026';(function(){ unlockWith(AUTO_PW); })();/*AUTO-UNLOCK-END*/
 </script>
 </body>
 </html>
