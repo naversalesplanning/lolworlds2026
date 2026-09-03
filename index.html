@@ -551,7 +551,6 @@ body.presenting .present-counter{display:block}
 .apply-float:hover{filter:brightness(1.06);transform:translateY(-1px)}
 .apply-cap{padding:4px 11px;border-radius:99px;background:rgba(4,24,27,.66);color:rgba(255,255,255,.9);font-size:11.5px;font-weight:700;letter-spacing:-.01em;backdrop-filter:blur(4px)}
 .apply-live{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:99px;background:rgba(4,24,27,.72);border:1px solid rgba(106,225,246,.5);color:var(--crimson);font-size:11.5px;font-weight:800;letter-spacing:-.01em;backdrop-filter:blur(4px)}
-.apply-badges{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap}
 .apply-sold{display:inline-flex;align-items:center;padding:4px 12px;border-radius:99px;background:rgba(245,181,71,.16);border:1px solid rgba(245,181,71,.55);color:#F5B547;font-size:11.5px;font-weight:800;letter-spacing:-.01em;backdrop-filter:blur(4px)}
 .apply-live i{width:6px;height:6px;border-radius:99px;background:var(--crimson);box-shadow:0 0 0 0 rgba(106,225,246,.75);animation:applyPulse 1.8s ease-out infinite}
 @keyframes applyPulse{0%{box-shadow:0 0 0 0 rgba(106,225,246,.7)}70%{box-shadow:0 0 0 7px rgba(106,225,246,0)}100%{box-shadow:0 0 0 0 rgba(106,225,246,0)}}
@@ -593,11 +592,9 @@ body.presenting .apply-float-wrap{display:none}
 
 <!-- FLOATING APPLY CTA -->
 <div class="apply-float-wrap" id="applyFloatWrap">
-  <div class="apply-badges">
-    <span class="apply-sold">올매치 패키지 완판 · 대기열 접수 중</span>
-    <span class="apply-live"><i></i>신청 접수 중</span>
-  </div>
+  <span class="apply-live"><i></i>신청 접수 중</span>
   <a id="applyFloat" class="apply-float" href="https://naver.me/5l2SMycR" target="_blank" rel="noopener">패키지 신청하기 →</a>
+  <span class="apply-sold">올매치 패키지 완판 · 대기열 접수 중</span>
   <span class="apply-cap">선착순 마감 · 잔여 구좌 소진 시 대기만 가능</span>
 </div>
 
